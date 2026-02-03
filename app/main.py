@@ -1,6 +1,7 @@
 from flask import Flask, request, Response, jsonify
 from flask_cors import CORS
-
+from dotenv import load_dotenv
+load_dotenv()
 # Local imports from app
 from app.routes import session as session_route
 
