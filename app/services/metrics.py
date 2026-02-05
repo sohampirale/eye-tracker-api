@@ -65,7 +65,8 @@ def func_total_accuracy(group):
         group (pandas.DataFrame): A group of data containing the predicted and true values for the X and Y axes.
 
     Returns:
-        float: The total accuracy value.
+        float: The total accuracy value(eculidean distance).
+
     """
     distances = np.sqrt(
         np.square(group["True X"] - group["Predicted X"]) + 
