@@ -133,12 +133,16 @@ def calib_results():
                 "screen_width": screen_width,
                 "k": k
             }
+            
+            USE_EMULATORS=os.getenv('USE_EMULATORS')
+            FUNCTIONS_ENDPOINT_URL = os.getenv('FUNCTIONS_ENDPOINT_URL')
 
-            RUXAILAB_WEBHOOK_URL = "https://receivecalibration-ffptzpxikq-uc.a.run.app"
+            if USE_EMULATORS:
+                FUNCTIONS_ENDPOINT_URL+='/receiveCalibration'    
 
             print("file_name:", file_name)
 
-            resp = requests.post(RUXAILAB_WEBHOOK_URL, json=payload)
+            resp = requests.post(FUNCTIONS_ENDPOINT_URL, json=payload)
             print("Enviado para RuxaiLab:", resp.status_code, resp.text)
         except Exception as e:
             print("Erro ao enviar para RuxaiLab:", e)
