@@ -70,8 +70,8 @@ hyperparameters = {
     },
     "Support Vector Regressor": {
         "param_grid": {
-            "svr__C": [0.1, 1, 10, 100, 1000],
-            "svr__gamma": [0.0001, 0.001, 0.01, 0.1, 1],
+            "svr__C": [1, 10 ],
+            "svr__gamma": [ 0.01, 0.1],
             "svr__kernel": ["linear", "rbf", "poly"],
         }
     },
