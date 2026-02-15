@@ -78,6 +78,7 @@ scoring = {
     "mae": make_scorer(mean_absolute_error),
 }
 
+model_cache={}
 
 def squash(v, limit=1.0):
     """Squash não-linear estilo WebGazer"""
@@ -313,28 +314,12 @@ def predict_new_data_simple(
         diff_y_norm, rel_y_norm
     ])
 
-    model_x_pickle_filepath = Path().absolute() / "app/services/calib_validation/pickles" / f"{calib_id}_model_x.pkl"
-    model_y_pickle_filepath = Path().absolute() / "app/services/calib_validation/pickles" / f"{calib_id}_model_y.pkl"
-
-    if os.path.exists(model_x_pickle_filepath) and os.path.exists(model_y_pickle_filepath):
-
-        print(f'Loading cached models for {calib_id}')
-        try:
-            with open(model_x_pickle_filepath, 'rb') as f:
-                model_x = pickle.load(f)
-
-            with open(model_y_pickle_filepath, 'rb') as f:
-                model_y = pickle.load(f)
-            print(f'Successfully loaded models for {calib_id}')
-        except Exception as e:
-            print(f'Unexpected error with caching for {calib_id}: {e}')
-            print(f'Falling back to training new models')
-            
-            model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-            model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-            
-            model_x.fit(X_train_x, y_train_x)
-            model_y.fit(X_train_y, y_train_y)
+    if calib_id in model_cache:
+        print(f'Loading models from cache')
+        cached_models = model_cache.get(calib_id)
+        model_x = cached_models.get('x')
+        model_y = cached_models.get('y')
+   
     else:  
 
         # ============================
@@ -343,20 +328,16 @@ def predict_new_data_simple(
         model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
         model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
 
-        model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-        model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-
-
         model_x.fit(X_train_x, y_train_x)
         model_y.fit(X_train_y, y_train_y)   
 
-        model_x_pickle_filepath.parent.mkdir(parents=True, exist_ok=True)
+        cached_models={
+            "x":model_x,
+            "y":model_y
+        }
 
-        with open(model_x_pickle_filepath, 'wb') as f:
-            pickle.dump(model_x, f)
+        model_cache[calib_id]=cached_models
 
-        with open(model_y_pickle_filepath, 'wb') as f:
-            pickle.dump(model_y, f)
 
     # ============================
     # Real scale (calibration) - normalize predicted values to screen coordinates
