@@ -1,8 +1,8 @@
 # Necessary imports
 import os
+import threading
 import math
 import warnings
-import pickle
 
 warnings.filterwarnings("ignore")
 
@@ -44,7 +44,7 @@ from app.services.metrics import (
     func_total_accuracy,
 )
 from app.services.config import hyperparameters
-
+from collections import defaultdict,OrderedDict
 
 # Machine learning models to use
 models = {
@@ -78,7 +78,32 @@ scoring = {
     "mae": make_scorer(mean_absolute_error),
 }
 
-model_cache={}
+class LRUCache:
+    def __init__(self, max_size=100): 
+        self.max_size = max_size
+        self.cache = OrderedDict()
+    
+    def get(self, key):
+        if key in self.cache:
+            # Move to end
+            self.cache.move_to_end(key)
+            return self.cache[key]
+        return None
+    
+    def put(self, key, value):
+        if key in self.cache:
+            self.cache.move_to_end(key)
+        elif len(self.cache) >= self.max_size:
+            # Remove LRU
+            self.cache.popitem(last=False)
+        
+        self.cache[key] = value
+    
+    def __contains__(self, key):
+        return key in self.cache
+
+model_cache=LRUCache(max_size=100)
+calibration_locks = defaultdict(threading.Lock)
 
 def squash(v, limit=1.0):
     """Squash não-linear estilo WebGazer"""
@@ -314,29 +339,30 @@ def predict_new_data_simple(
         diff_y_norm, rel_y_norm
     ])
 
-    if calib_id in model_cache:
-        print(f'Loading models from cache')
+    with calibration_locks[calib_id]:
         cached_models = model_cache.get(calib_id)
-        model_x = cached_models.get('x')
-        model_y = cached_models.get('y')
-   
-    else:  
 
-        # ============================
-        # MODELS
-        # ============================
-        model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-        model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+        if cached_models:
+            print(f'Loading models from cache')
+            model_x = cached_models.get('x')
+            model_y = cached_models.get('y')
+        else:  
 
-        model_x.fit(X_train_x, y_train_x)
-        model_y.fit(X_train_y, y_train_y)   
+            # ============================
+            # MODELS
+            # ============================
+            model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+            model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
 
-        cached_models={
-            "x":model_x,
-            "y":model_y
-        }
+            model_x.fit(X_train_x, y_train_x)
+            model_y.fit(X_train_y, y_train_y)   
 
-        model_cache[calib_id]=cached_models
+            model_cache.put(calib_id,{
+                "x":model_x,
+                "y":model_y
+            })
+
+        
 
 
     # ============================
