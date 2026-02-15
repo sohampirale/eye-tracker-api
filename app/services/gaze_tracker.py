@@ -1,6 +1,8 @@
 # Necessary imports
+import os
 import math
 import warnings
+import pickle
 
 warnings.filterwarnings("ignore")
 
@@ -249,6 +251,8 @@ def predict_new_data_simple(
     SQUASH_LIMIT_X = 1.0
     SQUASH_LIMIT_Y = 1.0
     Y_GAIN = 1.2  # adjustment to compensate for vertical bias
+    csv_filename = os.path.basename(calib_csv_path)  
+    calib_id = csv_filename.replace("_fixed_train_data.csv", "")
 
     # ============================
     # LOAD TRAIN
@@ -309,14 +313,50 @@ def predict_new_data_simple(
         diff_y_norm, rel_y_norm
     ])
 
-    # ============================
-    # MODELS
-    # ============================
-    model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
-    model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+    model_x_pickle_filepath = Path().absolute() / "app/services/calib_validation/pickles" / f"{calib_id}_model_x.pkl"
+    model_y_pickle_filepath = Path().absolute() / "app/services/calib_validation/pickles" / f"{calib_id}_model_y.pkl"
 
-    model_x.fit(X_train_x, y_train_x)
-    model_y.fit(X_train_y, y_train_y)
+    if os.path.exists(model_x_pickle_filepath) and os.path.exists(model_y_pickle_filepath):
+
+        print(f'Loading cached models for {calib_id}')
+        try:
+            with open(model_x_pickle_filepath, 'rb') as f:
+                model_x = pickle.load(f)
+
+            with open(model_y_pickle_filepath, 'rb') as f:
+                model_y = pickle.load(f)
+            print(f'Successfully loaded models for {calib_id}')
+        except Exception as e:
+            print(f'Unexpected error with caching for {calib_id}: {e}')
+            print(f'Falling back to training new models')
+            
+            model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+            model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+            
+            model_x.fit(X_train_x, y_train_x)
+            model_y.fit(X_train_y, y_train_y)
+    else:  
+
+        # ============================
+        # MODELS
+        # ============================
+        model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+        model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+
+        model_x = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+        model_y = make_pipeline(StandardScaler(), Ridge(alpha=1.0))
+
+
+        model_x.fit(X_train_x, y_train_x)
+        model_y.fit(X_train_y, y_train_y)   
+
+        model_x_pickle_filepath.parent.mkdir(parents=True, exist_ok=True)
+
+        with open(model_x_pickle_filepath, 'wb') as f:
+            pickle.dump(model_x, f)
+
+        with open(model_y_pickle_filepath, 'wb') as f:
+            pickle.dump(model_y, f)
 
     # ============================
     # Real scale (calibration) - normalize predicted values to screen coordinates
